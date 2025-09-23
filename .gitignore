@@ -9,6 +9,7 @@
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
+.pnpm-store/
 
 # testing
 /coverage
@@ -31,11 +32,65 @@ yarn-error.log*
 .pnpm-debug.log*
 
 # env files (can opt-in for committing if needed)
-.env*
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+.env*.local
 
 # vercel
 .vercel
+.vercel/output
+.vercel/cache
 
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Miscellaneous
+.DS_Store
+*.pem
+*.bak
+*.log
+*.swp
+*.swo
+Thumbs.db
+
+# Editor directories and files
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.sublime-project
+*.sublime-workspace
+
+# Cache and temporary files
+*.cache
+*.tmp
+tmp/
+
+# Build artifacts
+/public/build
+/static/build
+
+# Prisma
+/prisma/dev.db
+/prisma/dev.db-journal
+/prisma/migrations/*.sql
+/prisma/seed.ts
+
+/generated
+generated
+
+# Other common Next.js and web app ignores
+*.sqlite
+*.sqlite3
+*.db
+*.lock
+
+.husky/
+
+.xlsx
+.xls
+exports
+/exports

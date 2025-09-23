@@ -10,17 +10,28 @@
     "format": "biome format --write"
   },
   "dependencies": {
+    "@prisma/client": "^6.16.2",
+    "@vercel/postgres": "^0.10.0",
+    "date-fns": "^4.1.0",
+    "next": "15.5.4",
+    "prisma": "^6.16.2",
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "next": "15.5.4"
+    "react-swipeable": "^7.0.2",
+    "xlsx": "^0.18.5",
+    "zustand": "^5.0.8"
   },
   "devDependencies": {
-    "typescript": "^5",
+    "@biomejs/biome": "2.2.0",
+    "@commitlint/cli": "^19.8.1",
+    "@commitlint/config-conventional": "^19.8.1",
+    "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@tailwindcss/postcss": "^4",
+    "husky": "^9.1.7",
+    "postcss": "^8.5.6",
     "tailwindcss": "^4",
-    "@biomejs/biome": "2.2.0"
+    "typescript": "^5"
   }
 }
