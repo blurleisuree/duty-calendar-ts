@@ -88,8 +88,6 @@ generated
 *.db
 *.lock
 
-.husky/
-
 .xlsx
 .xls
 exports
