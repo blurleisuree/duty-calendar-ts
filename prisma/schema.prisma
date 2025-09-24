@@ -1,0 +1,102 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model categories {
+  id   Int    @id @default(autoincrement())
+  name String @unique @db.VarChar(100) // Например, "РСО", "Администрация"
+
+  subcategories subcategories[]
+  organizations organizations[]
+  duty_officers duty_officers[]
+
+  @@map("categories")
+}
+
+model employees {
+  id             Int    @id @default(autoincrement())
+  full_name      String @db.VarChar(150) // Например, "Харланова Наталья Витальевна"
+  position       String @db.VarChar(500) // Например, "Начальник отдела"
+  organization_id Int
+  organization   organizations @relation(fields: [organization_id], references: [id], onDelete: Restrict)
+
+  phones phones[]
+  shifts shifts[]
+
+  @@unique([full_name, organization_id]) // Уникальность ФИО в рамках организации
+  @@map("employees")
+}
+
+model organizations {
+  id             Int    @id @default(autoincrement())
+  name           String @unique @db.VarChar(300) // Например, "«Россети Ленэнерго»"
+  subcategory_id Int?   
+  subcategory    subcategories? @relation(fields: [subcategory_id], references: [id], onDelete: Restrict)
+  category_id    Int 
+  category       categories @relation(fields: [category_id], references: [id], onDelete: Restrict) 
+
+  employees employees[]
+  shifts    shifts[]
+  duty_officers duty_officers[] 
+
+  @@map("organizations")
+}
+
+model phones {
+  id           Int    @id @default(autoincrement())
+  employee_id  Int
+  employee     employees @relation(fields: [employee_id], references: [id], onDelete: Cascade)
+  phone_number String @db.VarChar(50) // Например, "8 921 406 93 36"
+
+  @@unique([employee_id, phone_number]) // Уникальность номера для сотрудника
+  @@map("phones")
+}
+
+model subcategories {
+  id          Int    @id @default(autoincrement())
+  name        String @db.VarChar(100) // Например, "Электроснабжение"
+  category_id Int
+  category    categories @relation(fields: [category_id], references: [id], onDelete: Restrict)
+
+  organizations organizations[]
+  duty_officers duty_officers[] 
+
+  @@unique([name, category_id]) // Уникальность подкатегории в рамках категории
+  @@map("subcategories")
+}
+
+model shifts {
+  id             Int      @id @default(autoincrement())
+  employee_id    Int
+  organization_id Int
+  employee       employees @relation(fields: [employee_id], references: [id], onDelete: Restrict)
+  organization   organizations @relation(fields: [organization_id], references: [id], onDelete: Restrict)
+  shift_date     DateTime @db.Date // Например, "2025-04-30"
+  start_time     String?  // Только время, например, "16:20"
+  end_time       String?  // Только время, например, "09:00"
+
+  @@index([shift_date])
+  @@index([employee_id])
+  @@index([organization_id])
+  @@map("shifts")
+}
+
+model duty_officers {
+  id             Int           @id @default(autoincrement())
+  position       String        @db.VarChar(500)
+  phones         String        @db.VarChar(200)
+  category_id    Int
+  category       categories    @relation(fields: [category_id], references: [id], onDelete: Restrict)
+  subcategory_id Int?
+  subcategory    subcategories? @relation(fields: [subcategory_id], references: [id], onDelete: Restrict)
+  organization_id Int
+  organization   organizations? @relation(fields: [organization_id], references: [id], onDelete: Restrict)
+
+  @@map("duty_officers")
+}
