@@ -18,10 +18,6 @@ export const metadata: Metadata = {
       'max-snippet': -1,
     },
   },
-  // appleMobileWebAppCapable: 'yes',
-  // mobileWebAppCapable: 'yes',
-  // appleMobileWebAppStatusBarStyle: 'black-translucent',
-  // backgroundColor: '#ffffff',
   icons: {
     icon: '/favicons/favicon.ico',
     shortcut: '/favicons/favicon.ico',
@@ -35,7 +31,7 @@ export const metadata: Metadata = {
       },
       {
         rel: 'icon',
-        url: '/favicons/pwa-512x512.pngg',
+        url: '/favicons/pwa-512x512.png',
         sizes: '512x512',
         type: 'image/png',
       },
@@ -50,6 +46,7 @@ export const viewport: Viewport = {
   userScalable: false,
 };
 
+import Head from 'next/head';
 // import { Header } from '@modules/Header/index.js';
 
 // обертка всего приложения (по типу App)
@@ -61,6 +58,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ru">
+       <Head>
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="background-color" content="#ffffff" />
+      </Head>
       <body>
         {/* <Header /> */}
         {children}
