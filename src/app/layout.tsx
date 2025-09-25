@@ -50,7 +50,6 @@ import Head from 'next/head';
 // import { Header } from '@modules/Header/index.js';
 
 // обертка всего приложения (по типу App)
-
 export default function RootLayout({
   children,
 }: Readonly<{
