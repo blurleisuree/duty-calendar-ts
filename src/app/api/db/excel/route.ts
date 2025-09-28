@@ -1,13 +1,10 @@
-import { NextResponse } from 'next/server';
-
-import { parseExcel } from '@server/excel/parseExcel';
-
 import { PrismaClient } from "@prisma/client";
-// import { PrismaClient } from '../../../../prisma';
+import { parseExcel } from "@server/excel/parseExcel";
+import { NextResponse } from "next/server";
 
 const prisma = new PrismaClient();
 
-export async function POST(request) {
+export async function POST(request: Request): Promise<NextResponse> {
   try {
     // Удаляем все старые данные (сначала shifts, потом остальные, чтобы не нарушить FK)
     await prisma.shifts.deleteMany({});
@@ -19,34 +16,34 @@ export async function POST(request) {
     await prisma.categories.deleteMany({});
 
     const formData = await request.formData();
-    const file = formData.get('file');
+    const file = formData.get("file");
 
     // // Валидация на сервере
-    if (!file) {
+    if (!(file instanceof File)) {
       return NextResponse.json(
-        { error: 'Файл не предоставлен' },
-        { status: 400 }
+        { error: "Файл не предоставлен" },
+        { status: 400 },
       );
     }
 
-    if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
+    if (!file.name.endsWith(".xlsx") && !file.name.endsWith(".xls")) {
       return NextResponse.json(
-        { error: 'Неподдерживаемый формат файла' },
-        { status: 400 }
+        { error: "Неподдерживаемый формат файла" },
+        { status: 400 },
       );
-    // }
+    }
 
     if (file.size > 5 * 1024 * 1024) {
       return NextResponse.json(
-        { error: 'Файл слишком большой' },
-        { status: 400 }
+        { error: "Файл слишком большой" },
+        { status: 400 },
       );
     }
 
     // Парсинг и сохранение
     const data = await parseExcel(file);
     if (data.length === 0) {
-      return NextResponse.json({ error: 'Файл пуст' }, { status: 400 });
+      return NextResponse.json({ error: "Файл пуст" }, { status: 400 });
     }
 
     // Валидация структуры данных
@@ -61,75 +58,92 @@ export async function POST(request) {
 
     // Сохранение в базу данных
     for (const row of data) {
-      console.log(row);
+      let category: Awaited<
+        ReturnType<typeof prisma.categories.upsert>
+      > | null = null;
+      let subcategory: Awaited<
+        ReturnType<typeof prisma.subcategories.upsert>
+      > | null = null;
+      let organization: Awaited<
+        ReturnType<typeof prisma.organizations.upsert>
+      > | null = null;
+      let employee: Awaited<ReturnType<typeof prisma.employees.upsert>> | null =
+        null;
       // Обработка оперативных дежурных
+      // Можно вынести в отдельное место для чистоты кода
+      console.log(row);
       if (row.isDutyOfficer) {
-        let category = await prisma.categories.upsert({
-          where: { name: row.category },
-          update: {},
-          create: { name: row.category },
-        });
+        // Категория обязательная
+        if (row.category) {
+          category = await prisma.categories.upsert({
+            where: { name: row.category },
+            update: {},
+            create: { name: row.category },
+          });
 
-        let subcategory = null;
-        if (row.subcategory) {
-          subcategory = await prisma.subcategories.upsert({
-            where: {
-              name_category_id: {
+          if (row.subcategory) {
+            subcategory = await prisma.subcategories.upsert({
+              where: {
+                name_category_id: {
+                  name: row.subcategory,
+                  category_id: category.id,
+                },
+              },
+              update: {},
+              create: {
                 name: row.subcategory,
                 category_id: category.id,
               },
-            },
-            update: {},
-            create: {
-              name: row.subcategory,
-              category_id: category.id,
-            },
-          });
-        }
+            });
+          }
+          // Организация обязательная
+          if (row.organization) {
+            organization = await prisma.organizations.upsert({
+              where: { name: row.organization },
+              update: {
+                subcategory_id: subcategory?.id ?? null,
+                category_id: category.id,
+              },
+              create: {
+                name: row.organization,
+                subcategory_id: subcategory?.id ?? null,
+                category_id: category.id,
+              },
+            });
 
-        let organization = null;
-        if (row.organization) {
-          organization = await prisma.organizations.upsert({
-            where: { name: row.organization },
-            update: {
-              subcategory_id: subcategory ? subcategory.id : null,
-              category_id: category.id,
-            },
-            create: {
-              name: row.organization,
-              subcategory_id: subcategory ? subcategory.id : null,
-              category_id: category.id,
-            },
-          });
+            await prisma.duty_officers.create({
+              data: {
+                position: row.position ?? "",
+                phones: Array.isArray(row.phones) ? row.phones.join(", ") : "",
+                category_id: category.id,
+                subcategory_id: subcategory?.id,
+                organization_id: organization.id,
+              },
+            });
+          } else {
+            console.error("Нет организации для оперативного дежурного:", row);
+          }
+        } else {
+          console.error("Нет категории для оперативного дежурного:", row);
         }
-
-        await prisma.duty_officers.create({
-          data: {
-            position: row.position,
-            phones: Array.isArray(row.phones) ? row.phones.join(', ') : '',
-            category_id: category.id,
-            subcategory_id: subcategory ? subcategory.id : null,
-            organization_id: organization ? organization.id : null,
-          },
-        });
         continue;
       }
 
       // Проверка обязательных полей
       if (!row.category || !row.organization) {
-        console.error('Пропуск строки: нет категории или организации', row);
+        console.error("Пропуск строки: нет категории или организации", row);
         continue;
       }
 
       // 1. Категория
-      let category = await prisma.categories.upsert({
+      category = await prisma.categories.upsert({
         where: { name: row.category },
         update: {},
         create: { name: row.category },
       });
 
       // 2. Подкатегория
-      let subcategory = null;
+      //  subcategory = null;
       if (row.subcategory) {
         subcategory = await prisma.subcategories.upsert({
           where: {
@@ -147,103 +161,109 @@ export async function POST(request) {
       }
 
       // 3. Организация
-      let organization;
       try {
-        if (subcategory) {
-          organization = await prisma.organizations.upsert({
-            where: { name: row.organization },
-            update: {
-              subcategory_id: subcategory.id,
-              category_id: category.id,
-            },
-            create: {
-              name: row.organization,
-              subcategory_id: subcategory.id,
-              category_id: category.id,
-            },
-          });
-        } else {
-          organization = await prisma.organizations.upsert({
-            where: { name: row.organization },
-            update: {
-              subcategory_id: null,
-              category_id: category.id,
-            },
-            create: {
-              name: row.organization,
-              subcategory_id: null,
-              category_id: category.id,
-            },
-          });
-        }
+        organization = await prisma.organizations.upsert({
+          where: { name: row.organization },
+          update: {
+            subcategory_id: subcategory?.id ?? null,
+            category_id: category.id,
+          },
+          create: {
+            name: row.organization,
+            subcategory_id: subcategory?.id ?? null,
+            category_id: category.id,
+          },
+        });
       } catch (err) {
         console.error(
-          'Ошибка при создании организации:',
+          "Ошибка при создании организации:",
           row.organization,
-          err
+          err,
         );
         continue;
       }
 
       // 4. Сотрудник
-      let employee;
       try {
-        employee = await prisma.employees.upsert({
-          where: {
-            full_name_organization_id: {
+        if (row.position && row.fullName) {
+          employee = await prisma.employees.upsert({
+            where: {
+              full_name_organization_id: {
+                full_name: row.fullName,
+                organization_id: organization.id,
+              },
+            },
+            update: { position: row.position },
+            create: {
               full_name: row.fullName,
+              position: row.position,
               organization_id: organization.id,
             },
-          },
-          update: { position: row.position || '' },
-          create: {
-            full_name: row.fullName,
-            position: row.position || '',
-            organization_id: organization.id,
-          },
-        });
+          });
+        } else {
+          console.error("Пропуск строки: нет должности или ФИО", row);
+        }
       } catch (err) {
         console.error(
-          'Ошибка при создании/обновлении сотрудника:',
+          "Ошибка при создании/обновлении сотрудника:",
           row.fullName,
           row.organization,
-          err
+          err,
         );
       }
 
       // 5. Телефоны
       if (Array.isArray(row.phones)) {
         for (const phone of row.phones) {
-          await prisma.phones.upsert({
-            where: {
-              employee_id_phone_number: {
+          if (employee) {
+            await prisma.phones.upsert({
+              where: {
+                employee_id_phone_number: {
+                  employee_id: employee.id,
+                  phone_number: phone,
+                },
+              },
+              update: {},
+              create: {
                 employee_id: employee.id,
                 phone_number: phone,
               },
-            },
-            update: {},
-            create: {
-              employee_id: employee.id,
-              phone_number: phone,
-            },
-          });
+            });
+          } else {
+            console.error(
+              "Пропуск строки: не указан работник при создании номеров",
+              row,
+            );
+          }
         }
       }
       console.log(row.timeStart, row.timeEnd);
       // 6. Смена
-      await prisma.shifts.create({
-        data: {
-          employee_id: employee.id,
-          organization_id: organization.id,
-          shift_date: new Date(row.date),
-          start_time: row.timeStart ? row.timeStart : null,
-          end_time: row.timeEnd ? row.timeEnd : null,
-        },
-      });
+      if (employee) {
+        if (!row.date) {
+          console.error("Пропуск строки: нет даты для смены", row);
+          continue;
+        }
+
+        await prisma.shifts.create({
+          data: {
+            employee_id: employee.id,
+            organization_id: organization.id,
+            shift_date: new Date(row.date),
+            start_time: row.timeStart ? row.timeStart : null,
+            end_time: row.timeEnd ? row.timeEnd : null,
+          },
+        });
+      } else {
+        console.error(
+          "Пропуск строки: не указан работник при создании смен",
+          row,
+        );
+      }
     }
 
-    return NextResponse.json({ message: 'Данные сохранены', data });
+    return NextResponse.json({ message: "Данные сохранены", data });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: error }, { status: 500 });
   }
 }
